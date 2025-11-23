@@ -24,7 +24,7 @@ jobs:
     
     - name: Build executable
       run: |
-        pyinstaller --onefile --noconsole --name MantraBridge mantra_bridge.py
+        pyinstaller --onefile --name MantraBridge mantra_bridge.py
     
     - name: Upload artifact
       uses: actions/upload-artifact@v4
