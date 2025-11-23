@@ -7,17 +7,15 @@ app = Flask(__name__)
 CORS(app, resources={
     r"/*": {
         "origins": "*",
-        "methods": ["GET", "POST", "OPTIONS", "RDSERVICE", "DEVICEINFO", "CAPTURE"],
-        "allow_headers": ["Content-Type", "Accept", "Origin"]
+        "methods": "*",
+        "allow_headers": "*"
     }
 })
 
 MANTRA_URL = "http://127.0.0.1:11100"
 
-@app.route('/', defaults={'path': ''}, methods=['GET', 'POST', 'RDSERVICE', 'DEVICEINFO', 'CAPTURE', 'OPTIONS'])
-@app.route('/<path:path>', methods=['GET', 'POST', 'RDSERVICE', 'DEVICEINFO', 'CAPTURE', 'OPTIONS'])
-def proxy(path=''):
-    """Proxy all requests to Mantra RD Service"""
+def handle_request(path=''):
+    """Handle all requests regardless of method"""
     
     # Handle browser GET request to root - show status page
     if request.method == 'GET' and path == '':
@@ -27,19 +25,21 @@ def proxy(path=''):
 <head>
     <title>Mantra Bridge - Running</title>
     <style>
-        body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
-        .status { padding: 20px; border-radius: 8px; margin: 20px 0; }
-        .running { background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
-        .info { background-color: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; }
-        h1 { color: #333; }
-        code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; }
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; background: #f5f5f5; }
+        .status { padding: 20px; border-radius: 8px; margin: 20px 0; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .running { border-left: 4px solid #28a745; }
+        .info { border-left: 4px solid #17a2b8; }
+        h1 { color: #333; margin-top: 0; }
+        code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+        .badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+        .badge-success { background: #28a745; color: white; }
     </style>
 </head>
 <body>
     <h1>🔐 SV Recharge - Mantra Bridge</h1>
     <div class="status running">
-        <strong>✅ Bridge Status: RUNNING</strong>
-        <p>The bridge is running on port 8765</p>
+        <strong><span class="badge badge-success">✅ RUNNING</span></strong>
+        <p>Bridge is active on port 8765</p>
     </div>
     <div class="status info">
         <strong>ℹ️ Connection Info:</strong>
@@ -48,14 +48,18 @@ def proxy(path=''):
             <li>Mantra Service: <code>http://127.0.0.1:11100</code></li>
         </ul>
     </div>
-    <div class="info">
-        <h3>Instructions:</h3>
+    <div class="status">
+        <h3>📋 Instructions:</h3>
         <ol>
-            <li>Keep this window running</li>
+            <li>Keep this bridge running in background</li>
             <li>Open Mantra RD Service app</li>
             <li>Connect your biometric device</li>
-            <li>Open svrecharge.in in your browser</li>
+            <li>Open <strong>svrecharge.in</strong> in your browser</li>
+            <li>Use biometric features normally</li>
         </ol>
+    </div>
+    <div class="status info">
+        <p><strong>Status:</strong> All systems operational. Ready to proxy requests to Mantra RD Service.</p>
     </div>
 </body>
 </html>
@@ -66,8 +70,8 @@ def proxy(path=''):
         if request.method == 'OPTIONS':
             response = Response()
             response.headers['Access-Control-Allow-Origin'] = '*'
-            response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS, RDSERVICE, DEVICEINFO, CAPTURE'
-            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Accept'
+            response.headers['Access-Control-Allow-Methods'] = '*'
+            response.headers['Access-Control-Allow-Headers'] = '*'
             return response
         
         # Build target URL
@@ -94,8 +98,8 @@ def proxy(path=''):
         
         # Add CORS headers
         response.headers['Access-Control-Allow-Origin'] = '*'
-        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS, RDSERVICE, DEVICEINFO, CAPTURE'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Accept'
+        response.headers['Access-Control-Allow-Methods'] = '*'
+        response.headers['Access-Control-Allow-Headers'] = '*'
         
         print(f"✅ Response: {resp.status_code}")
         return response
@@ -103,7 +107,7 @@ def proxy(path=''):
     except requests.exceptions.ConnectionError:
         print("❌ Cannot connect to Mantra RD Service on port 11100")
         
-        # Return HTML error page for browser, JSON for API calls
+        # Return HTML error page for browser, text for API calls
         if 'text/html' in request.headers.get('Accept', ''):
             return Response("""
 <!DOCTYPE html>
@@ -111,8 +115,8 @@ def proxy(path=''):
 <head>
     <title>Mantra Service Not Found</title>
     <style>
-        body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
-        .error { background-color: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; padding: 20px; border-radius: 8px; }
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; background: #f5f5f5; }
+        .error { background-color: #f8d7da; border: 1px solid #f5c6cb; border-left: 4px solid #dc3545; color: #721c24; padding: 20px; border-radius: 8px; background: white; }
     </style>
 </head>
 <body>
@@ -120,20 +124,18 @@ def proxy(path=''):
         <h2>⚠️ Cannot Connect to Mantra RD Service</h2>
         <p>Please ensure:</p>
         <ol>
-            <li>Mantra RD Service app is running</li>
-            <li>Device is connected via OTG</li>
-            <li>RD Service shows 'READY' status</li>
+            <li><strong>Mantra RD Service app is running</strong></li>
+            <li>Device is connected via OTG cable</li>
+            <li>RD Service shows 'READY' status (green)</li>
         </ol>
+        <p>After starting the service, refresh this page or try again from svrecharge.in</p>
     </div>
 </body>
 </html>
-            """, status=503, mimetype='text/html')
+            """, status=503, mimetype='text/html', headers={'Access-Control-Allow-Origin': '*'})
         else:
             return Response(
-                "Cannot connect to Mantra RD Service. Please ensure:\n"
-                "1. Mantra RD Service app is running\n"
-                "2. Device is connected\n"
-                "3. RD Service shows 'READY' status",
+                "Cannot connect to Mantra RD Service. Please ensure app is running and device is connected.",
                 status=503,
                 headers={'Access-Control-Allow-Origin': '*'}
             )
@@ -141,10 +143,16 @@ def proxy(path=''):
     except Exception as e:
         print(f"❌ Error: {str(e)}")
         return Response(
-            f"Error: {str(e)}",
+            f"Bridge Error: {str(e)}",
             status=500,
             headers={'Access-Control-Allow-Origin': '*'}
         )
+
+# Register the handler for all routes and methods
+@app.route('/', defaults={'path': ''}, methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD', 'RDSERVICE', 'DEVICEINFO', 'CAPTURE'])
+@app.route('/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD', 'RDSERVICE', 'DEVICEINFO', 'CAPTURE'])
+def catch_all(path=''):
+    return handle_request(path)
 
 def check_mantra_service():
     """Check if Mantra RD Service is running"""
