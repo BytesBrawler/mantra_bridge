@@ -3,11 +3,34 @@ import urllib.request
 import sys
 
 class ProxyHandler(BaseHTTPRequestHandler):
-    def log_message(self, format, *args):
-        sys.stdout.write("%s - %s\n" % (self.address_string(), format % args))
     
-    def do_GET(self):
-        if self.path == '/' or self.path == '':
+    # Override to handle ANY method name
+    def handle_one_request(self):
+        """Override to accept any HTTP method"""
+        try:
+            self.raw_requestline = self.rfile.readline(65537)
+            if len(self.raw_requestline) > 65536:
+                self.requestline = ''
+                self.request_version = ''
+                self.command = ''
+                self.send_error(414)
+                return
+            if not self.raw_requestline:
+                self.close_connection = True
+                return
+            if not self.parse_request():
+                return
+            
+            # Route all methods to our handler
+            self.handle_request()
+            
+        except Exception as e:
+            print(f"Error handling request: {e}")
+    
+    def handle_request(self):
+        """Handle any HTTP method"""
+        # Show status page for GET /
+        if self.command == 'GET' and self.path in ['/', '']:
             self.send_response(200)
             self.send_header('Content-type', 'text/html')
             self.send_header('Access-Control-Allow-Origin', '*')
@@ -42,32 +65,23 @@ class ProxyHandler(BaseHTTPRequestHandler):
 </body>
 </html>"""
             self.wfile.write(html.encode('utf-8'))
+            
+        # Handle OPTIONS (CORS preflight)
+        elif self.command == 'OPTIONS':
+            self.send_response(200)
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.send_header('Access-Control-Allow-Methods', '*')
+            self.send_header('Access-Control-Allow-Headers', '*')
+            self.end_headers()
+            
+        # Forward everything else to Mantra RD Service
         else:
             self.proxy_request()
-    
-    def do_POST(self):
-        self.proxy_request()
-    
-    def do_RDSERVICE(self):
-        self.proxy_request()
-    
-    def do_DEVICEINFO(self):
-        self.proxy_request()
-    
-    def do_CAPTURE(self):
-        self.proxy_request()
-    
-    def do_OPTIONS(self):
-        self.send_response(200)
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', '*')
-        self.send_header('Access-Control-Allow-Headers', '*')
-        self.end_headers()
     
     def proxy_request(self):
         try:
             url = f"http://127.0.0.1:11100{self.path}"
-            print(f"Proxying {self.command} -> {url}")
+            print(f"📡 Proxying {self.command} -> {url}")
             
             content_len = int(self.headers.get('Content-Length', 0))
             body = self.rfile.read(content_len) if content_len > 0 else None
@@ -86,10 +100,10 @@ class ProxyHandler(BaseHTTPRequestHandler):
                 self.send_header('Access-Control-Allow-Headers', '*')
                 self.end_headers()
                 self.wfile.write(response.read())
-                print(f"Response: {response.status}")
+                print(f"✅ Response: {response.status}")
                 
         except urllib.error.URLError as e:
-            print(f"Cannot connect to Mantra RD Service: {e}")
+            print(f"❌ Cannot connect to Mantra RD Service: {e}")
             self.send_response(503)
             self.send_header('Content-type', 'text/html')
             self.send_header('Access-Control-Allow-Origin', '*')
@@ -108,7 +122,7 @@ class ProxyHandler(BaseHTTPRequestHandler):
 </html>"""
             self.wfile.write(html.encode('utf-8'))
         except Exception as e:
-            print(f"Error: {str(e)}")
+            print(f"❌ Error: {str(e)}")
             self.send_response(500)
             self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
