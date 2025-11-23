@@ -4,7 +4,6 @@ import sys
 
 class ProxyHandler(BaseHTTPRequestHandler):
     
-    # Override to handle ANY method name
     def handle_one_request(self):
         """Override to accept any HTTP method"""
         try:
@@ -21,15 +20,13 @@ class ProxyHandler(BaseHTTPRequestHandler):
             if not self.parse_request():
                 return
             
-            # Route all methods to our handler
             self.handle_request()
             
         except Exception as e:
-            pass  # Silent in background
+            pass
     
     def handle_request(self):
         """Handle any HTTP method"""
-        # Show status page for GET /
         if self.command == 'GET' and self.path in ['/', '']:
             self.send_response(200)
             self.send_header('Content-type', 'text/html')
@@ -148,17 +145,17 @@ class ProxyHandler(BaseHTTPRequestHandler):
 </head>
 <body>
     <div class="header">
-        <h1>🔐 SV Recharge - Mantra Bridge</h1>
+        <h1>SV Recharge - Mantra Bridge</h1>
     </div>
 
     <div class="status running">
-        <h2><span class="badge">✅ RUNNING</span> Bridge Status</h2>
+        <h2><span class="badge">RUNNING</span> Bridge Status</h2>
         <p>Bridge is active on port 8765 and ready to connect your biometric device with svrecharge.in</p>
         <p><strong>Running in background - No window needed!</strong></p>
     </div>
 
     <div class="status downloads">
-        <h2>📥 Required Downloads</h2>
+        <h2>Required Downloads</h2>
         <p>Before using your biometric device, please install these components:</p>
         
         <div class="download-item">
@@ -167,7 +164,7 @@ class ProxyHandler(BaseHTTPRequestHandler):
             <a href="https://www.mantratec.com/Download/Uploads/Setup/MFS110Driver_2.0.0.0.exe" 
                class="download-btn" 
                target="_blank">
-                ⬇️ Download Driver (MFS110Driver_2.0.0.0.exe)
+                ⬇Download Driver (MFS110Driver_2.0.0.0.exe)
             </a>
         </div>
 
@@ -177,7 +174,7 @@ class ProxyHandler(BaseHTTPRequestHandler):
             <a href="https://www.mantratec.com/Download/Uploads/Setup/MantraL1RDService_1.4.1.exe" 
                class="download-btn" 
                target="_blank">
-                ⬇️ Download RD Service (MantraL1RDService_1.4.1.exe)
+                ⬇Download RD Service (MantraL1RDService_1.4.1.exe)
             </a>
         </div>
 
@@ -187,7 +184,7 @@ class ProxyHandler(BaseHTTPRequestHandler):
     </div>
 
     <div class="status instructions">
-        <h2>📋 Setup Instructions</h2>
+        <h2>Setup Instructions</h2>
         <ol>
             <li><strong>Install Driver:</strong> Download and run MFS110Driver_2.0.0.0.exe</li>
             <li><strong>Install RD Service:</strong> Download and run MantraL1RDService_1.4.1.exe</li>
@@ -201,7 +198,7 @@ class ProxyHandler(BaseHTTPRequestHandler):
     </div>
 
     <div class="status">
-        <h2>🔧 Troubleshooting</h2>
+        <h2>Troubleshooting</h2>
         <ul>
             <li><strong>Device not detected?</strong> Make sure driver is installed and device is plugged in</li>
             <li><strong>RD Service shows red?</strong> Restart the RD Service app after installing driver</li>
@@ -218,7 +215,6 @@ class ProxyHandler(BaseHTTPRequestHandler):
 </html>"""
             self.wfile.write(html.encode('utf-8'))
             
-        # Handle OPTIONS (CORS preflight)
         elif self.command == 'OPTIONS':
             self.send_response(200)
             self.send_header('Access-Control-Allow-Origin', '*')
@@ -226,7 +222,6 @@ class ProxyHandler(BaseHTTPRequestHandler):
             self.send_header('Access-Control-Allow-Headers', '*')
             self.end_headers()
             
-        # Forward everything else to Mantra RD Service
         else:
             self.proxy_request()
     
@@ -244,8 +239,14 @@ class ProxyHandler(BaseHTTPRequestHandler):
             
             with urllib.request.urlopen(req, timeout=30) as response:
                 self.send_response(response.status)
+                # Skip CORS headers from upstream to avoid duplicates
                 for key, value in response.headers.items():
-                    self.send_header(key, value)
+                    if key.lower() not in ['access-control-allow-origin', 
+                                          'access-control-allow-methods', 
+                                          'access-control-allow-headers',
+                                          'access-control-allow-credentials']:
+                        self.send_header(key, value)
+                # Add our CORS headers
                 self.send_header('Access-Control-Allow-Origin', '*')
                 self.send_header('Access-Control-Allow-Methods', '*')
                 self.send_header('Access-Control-Allow-Headers', '*')
