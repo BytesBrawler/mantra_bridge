@@ -3,12 +3,34 @@ import urllib.request
 import sys
 
 class ProxyHandler(BaseHTTPRequestHandler):
-    def log_message(self, format, *args):
-        # Custom logging
-        sys.stdout.write("%s - %s\n" % (self.address_string(), format % args))
     
-    def do_GET(self):
-        if self.path == '/' or self.path == '':
+    # Override to handle ANY method name
+    def handle_one_request(self):
+        """Override to accept any HTTP method"""
+        try:
+            self.raw_requestline = self.rfile.readline(65537)
+            if len(self.raw_requestline) > 65536:
+                self.requestline = ''
+                self.request_version = ''
+                self.command = ''
+                self.send_error(414)
+                return
+            if not self.raw_requestline:
+                self.close_connection = True
+                return
+            if not self.parse_request():
+                return
+            
+            # Route all methods to our handler
+            self.handle_request()
+            
+        except Exception as e:
+            print(f"Error handling request: {e}")
+    
+    def handle_request(self):
+        """Handle any HTTP method"""
+        # Show status page for GET /
+        if self.command == 'GET' and self.path in ['/', '']:
             self.send_response(200)
             self.send_header('Content-type', 'text/html')
             self.send_header('Access-Control-Allow-Origin', '*')
@@ -26,13 +48,13 @@ class ProxyHandler(BaseHTTPRequestHandler):
     </style>
 </head>
 <body>
-    <h1>🔐 SV Recharge - Mantra Bridge</h1>
+    <h1>SV Recharge - Mantra Bridge</h1>
     <div class="status running">
-        <strong><span class="badge">✅ RUNNING</span></strong>
+        <strong><span class="badge">RUNNING</span></strong>
         <p>Bridge is active on port 8765</p>
     </div>
     <div class="status">
-        <h3>📋 Instructions:</h3>
+        <h3>Instructions:</h3>
         <ol>
             <li>Keep this bridge running</li>
             <li>Open Mantra RD Service app</li>
@@ -43,27 +65,18 @@ class ProxyHandler(BaseHTTPRequestHandler):
 </body>
 </html>"""
             self.wfile.write(html.encode('utf-8'))
+            
+        # Handle OPTIONS (CORS preflight)
+        elif self.command == 'OPTIONS':
+            self.send_response(200)
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.send_header('Access-Control-Allow-Methods', '*')
+            self.send_header('Access-Control-Allow-Headers', '*')
+            self.end_headers()
+            
+        # Forward everything else to Mantra RD Service
         else:
             self.proxy_request()
-    
-    def do_POST(self):
-        self.proxy_request()
-    
-    def do_RDSERVICE(self):
-        self.proxy_request()
-    
-    def do_DEVICEINFO(self):
-        self.proxy_request()
-    
-    def do_CAPTURE(self):
-        self.proxy_request()
-    
-    def do_OPTIONS(self):
-        self.send_response(200)
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', '*')
-        self.send_header('Access-Control-Allow-Headers', '*')
-        self.end_headers()
     
     def proxy_request(self):
         try:
@@ -98,7 +111,7 @@ class ProxyHandler(BaseHTTPRequestHandler):
             html = """<!DOCTYPE html>
 <html>
 <body>
-    <h2>⚠️ Cannot Connect to Mantra RD Service</h2>
+    <h2>Cannot Connect to Mantra RD Service</h2>
     <p>Please ensure:</p>
     <ol>
         <li>Mantra RD Service app is running</li>
@@ -117,14 +130,14 @@ class ProxyHandler(BaseHTTPRequestHandler):
 
 def print_banner():
     print("\n" + "="*60)
-    print("  🔐 SV Recharge - Mantra Biometric Bridge")
+    print("  SV Recharge - Mantra Biometric Bridge")
     print("="*60)
     print("  Bridge Server: http://127.0.0.1:8765")
     print("  Mantra Service: http://127.0.0.1:11100")
     print("="*60)
-    print("\n📱 Ready to accept requests from svrecharge.in")
-    print("   Test in browser: http://127.0.0.1:8765")
-    print("   Keep this window open while using the website\n")
+    print("\n  Ready to accept requests from svrecharge.in")
+    print("  Test in browser: http://127.0.0.1:8765")
+    print("  Keep this window open while using the website\n")
     print("="*60 + "\n")
 
 if __name__ == '__main__':
@@ -133,9 +146,9 @@ if __name__ == '__main__':
         server = HTTPServer(('127.0.0.1', 8765), ProxyHandler)
         server.serve_forever()
     except KeyboardInterrupt:
-        print("\n\n👋 Mantra Bridge stopped")
+        print("\n\nMantra Bridge stopped")
         sys.exit(0)
     except Exception as e:
-        print(f"\n❌ Failed to start server: {e}")
+        print(f"\nFailed to start server: {e}")
         input("Press Enter to exit...")
         sys.exit(1)
